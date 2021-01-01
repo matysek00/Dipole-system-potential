@@ -8,7 +8,7 @@ Python 3.6.9
 * sys 
 * re 
 * ProbeParticleModel https://github.com/ProkopHapala/ProbeParticleModel
-  * for creating the .xsf file if you wish 
+  * for creating the .xsf file if you want to use the code from terminal
   * add the path to the library in the script as ppafm right at the top
   * I found a similar function in ase but did not get it to work 😪️
 
