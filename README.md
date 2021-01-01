@@ -85,4 +85,6 @@ running the following command on terminal
 ```bash 
 Dipole_potential_map.py dip.in -p 30 30 5 -c 200 -e 5 10
 ```
-will create file Dipoles.xsf which I visualized with Vesta
+will create file Dipoles.xsf which I visualized with Vesta  
+  
+<img src="./dip.png" alt="" style="width:10px;"/>
