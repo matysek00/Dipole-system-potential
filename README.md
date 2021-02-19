@@ -64,8 +64,10 @@ dip_mom = np.array([[1,1,0],
                    
 cutoff = 100
 
-grid = Dip.CreateGrid(Lattice, npoints, eval_height) # points to be evaluated                                            
-Potential = Dip.CalculateGrid(dip_pos,dip_mom, grid, Lattice, cutoff) # V(x,y,z) = Potential[z, y, x]  
+Potential = Dip.CalculateGrid(dip_pos,dip_mom, npoints, Lattice, eval_height, cutoff=0) # V(x,y,z) = Potential[z, y, x]
+
+#if you want the coordinates of indivudual points 
+grid = Dip.MakeGrid(npoints, Lattice, eval_height).reshape((*npoints[::-1],3))
 ```
 
 ## Example 
