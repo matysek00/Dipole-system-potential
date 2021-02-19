@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
 ### ADD PATH TO ProbeParticleModel ###
-ppafm = '/home/matyas/Scripts/Python/pypath/ProbeParticleModel'
+ppafm = ''
+#Then uncoment the 2 lines below
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,8 +10,8 @@ import sys
 import re
 import argparse
 
-sys.path.append(ppafm)
-import pyProbeParticle.GridUtils as GU
+#sys.path.append(ppafm)
+#import pyProbeParticle.GridUtils as GU
 
 
     
@@ -54,39 +55,40 @@ def ReadGeo(geo_input):
     return Dip_pos, Dip_moment, Latice
     
 
-def CreateGrid(Lattice, point_grid, eval_height):
+def MakeGrid(npoints, Lattice, eval_height):
     """
-    CreateGrid(Lattice, point_grid, eval_height)
+    MakeGrid(Lattice, point_grid, eval_height)
     Creates a grid over sample space with base defined by lattice vectors and height as a eval height
    
     Parameters
     ----------
+    npoints: list or 1d array size 3
+       number of points to sample in each dimension [x,y,z]
     Lattice: array with shape (2, 3) 
        Lattice vectors of the dipole system
-    point_grid: list or 1d array size 3
-       number of points to sample in each dimension [x,y,z]
     eval_height: list or 1d array size 2
        lower and upper z boundary of the sample saple 
     
     Returns
     -------
     PointGrid : 3d array 
-       An Array representing each point point of the sampling space coordinates of each point are PointGrid[z,y,x]
+       An Array representing each point point of the sampling space coordinates [[x1,y1,z1],[x2,y2,z3],...[xn,yn,zn]]
     """
     
-   
-    agrid = np.linspace(0,Lattice[0], point_grid[0])
-    bgrid = np.linspace(0,Lattice[1], point_grid[1])
-    cgrid = np.linspace([0,0,eval_height[0]], [0,0,eval_height[1]], point_grid[2])
+    #create space
+    a = np.linspace(0,1,npoints[0])
+    b = np.linspace(0,1,npoints[1])
+    c = np.linspace(*eval_height, npoints[2])
+        
+    bb, aa, zz = np.meshgrid(b, a, c)
     
-    PointGrid = np.zeros((point_grid[2], point_grid[1], point_grid[0], 3))
+    #convert the the coordinates of x and y
+    xx = aa*Lattice[0][0] + bb*Lattice[1][0] 
+    yy = aa*Lattice[0][1] + bb*Lattice[1][1] 
+    mesh = np.array([xx,yy,zz])
     
-    for z, c in enumerate(cgrid):
-        for y, b in enumerate(bgrid):
-            for x, a in enumerate(agrid):
-                
-                PointGrid[z, y, x] =  a + b + c
-
+    PointGrid = mesh.T.reshape([-1, 3])
+    
     return PointGrid
 
 
@@ -196,7 +198,7 @@ def CreateAllDip(Dip_pos, Dip_moments, Lattice, maxLat):
     return All_dip_pos, All_dip_mom
 
 
-def CalculateGrid(Dip_pos, Dip_moments, PointGrid, Lattice, cutoff, long_range=False, K=14.3996):
+def CalculateGrid(Dip_pos, Dip_moments, npoints, Lattice, eval_height, cutoff, long_range=False, K=14.3996):
     """
     CalculateGrid(Dip_pos, Dip_moments, PointGrid, Lattice, cutoff, long_range, K)
     Calculates the potential at each point of the Point from the system of Dipoles 
@@ -208,10 +210,12 @@ def CalculateGrid(Dip_pos, Dip_moments, PointGrid, Lattice, cutoff, long_range=F
        positions of dipoles
     Dip_moment : arrayle
        moments of dipoles
-    PointGrid : 3d array 
-       points in space to be evaluated, coordinates of each point are PointGrid[z, y, x]
-    Lattice : array
+    npoints: list or 1d array size 3
+       number of points to sample in each dimension [x,y,z]
+    Lattice: array with shape (2, 3) 
        Lattice vectors of the dipole system
+    eval_height: list or 1d array size 2
+       lower and upper z boundary of the sample saple 
     cutoff : float 
        cutoff distance if zero only one cell will be used 
     long_range : bool, optional 
@@ -237,38 +241,40 @@ def CalculateGrid(Dip_pos, Dip_moments, PointGrid, Lattice, cutoff, long_range=F
         cutoff_cube = np.inf
     else:
         E_long_range = getELongRange(Dip_moments, Lattice, cutoff, long_range)
-
+    
+    PointGrid = MakeGrid(npoints, Lattice, eval_height)
+    
     #create array of all acceptable dipole positions and corespondings moments   
     Dip_pos, Dip_moments = CreateAllDip(Dip_pos, Dip_moments, Lattice, maxLat)
-
-    Potential = np.zeros(PointGrid[:,:,:,0].shape)
-
-    #loop over points
-    for z, Z in enumerate(PointGrid):
-        for y, Y in enumerate(Z):
-            for x, pos in enumerate(Y):
-
-                #add long range correction
-                Potential[z, y, x] += np.dot(pos, E_long_range)
-
-                #position from the dipoles frame of reference 
-                rel_pos = pos - Dip_pos                   
-                rel_pos_cube = np.sqrt( (rel_pos**2).sum(axis=1))**3
+    Potential = np.empty(PointGrid.shape[0])
         
-                #filter out distaces over cutoff it's sad how proud I am of this 😢️😭️   
-                filt = (abs(rel_pos_cube) < cutoff_cube).astype(int) 
-                
-                #ignore to long distances and divide the by the cube of distance
-                filt = filt/rel_pos_cube
-                rel_pos *= np.tile(filt,(3,1)).T
-
-                #now its just a sum of contributions of all dipoles in all directions
-                Potential[z, y, x] += (rel_pos*Dip_moments).sum()
-
-    Potential*=K
+    for i, pos in enumerate(PointGrid):
+        #doing the operation on the whole PointGrind in the same time would result in creating some big ass arrays 
+        #The efficency would drop as I would need a tensor representing the interaction of each dipole with each point
+        
+        #position from the dipoles frame of reference 
+        rel_pos = pos - Dip_pos                   
+        rel_pos_cube = np.sqrt( (rel_pos**2).sum(axis=1))**3
+        
+        #filter out distaces over cutoff it's sad how proud I am of this 😢️😭️   
+        filt = (abs(rel_pos_cube) < cutoff_cube)
+        
+        #ignore to long distances and divide the by the cube of distance
+        filt = filt/rel_pos_cube
+        
+        filt_pos = filt[:,None]*rel_pos[:,:]
+        
+        #now its just a sum of contributions of all dipoles in all directions
+        Potential[i] = (filt_pos*Dip_moments).sum()
+    
+    #add long range correction
+    Potential += (PointGrid[:,:]*E_long_range[None,:]).sum(axis=1)
+        
+    #Potential= K*CalculateLayer(xx, yy, zz, Dip_pos, Dip_moments, cutoff_cube)
+    Potential *= K
     
     # I am hungry
-    return Potential
+    return Potential.reshape(npoints[::-1])
 
 
 def DrawDipoles(Potential, Dip_pos, Dip_mom, Lattice, plotDip, axis='on', delta=0.8):
@@ -319,23 +325,18 @@ if __name__ == '__main__':
     parser.add_argument('-k', '--columbic_constat', dest = 'K', type=float, default = 14.3996, help='default is 14.3996')
         
     
-
     args = parser.parse_args()
     
     Dip_pos, Dip_moment, Lattice = ReadGeo(args.geo_input)
-    PointGrid = CreateGrid(Lattice, args.point_grid, args.eval_height)
-                    
-    Potential = CalculateGrid(Dip_pos, Dip_moment, PointGrid, Lattice, args.cutoff, args.long_range, args.K)
-    
-    
+                        
+    Potential = CalculateGrid(Dip_pos, Dip_moment, args.point_grid, Lattice, args.eval_height,  args.cutoff, args.long_range, args.K)
     
     #create a lattice of the sample space  
     c = np.array([0,0, args.eval_height[1] - args.eval_height[0]])
     Lat  = np.vstack((c, Lattice))
 
     #create an xsf file as a vector representation
-    GU.saveXSF(args.geo_input.split('.')[0], Potential, Lat)
+    GU.saveXSF(args.geo_input.split('.')[0]+'.xsf', Potential, Lat)
     
             
         
-
