@@ -4,13 +4,9 @@ Python script that creates a map of potential on a 3D grid caused by a 2 dimensi
 ## Libraries
 Python 3.6.9
 * numpy 1.18.5
-* argparse 1.4.0
-* sys 
-* re 
 * ProbeParticleModel https://github.com/ProkopHapala/ProbeParticleModel
   * for creating the .xsf file if you want to use the code from terminal
   * add the path to the library in the script as ppafm right at the top
-  * I found a similar function in ase but did not get it to work 😪️
 
 ## Usage 
 ### Terminal 
